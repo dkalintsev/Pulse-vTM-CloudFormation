@@ -1,0 +1,582 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+
+  "Description": "This AWS CloudFormation Template deploys a cluster of Pulse vTMs into an existing VPC. Copyright (c) 2018 Pulse Secure LLC.",
+  "Metadata" : {
+    "AWS::CloudFormation::Interface" : {
+      "ParameterGroups" : [
+        {
+          "Label" : { "default" : "VPC Configuration" },
+          "Parameters" : [ "VPC", "VPCCIDR", "PublicSubnet1", "PublicSubnet2" ]
+        },
+
+        {
+          "Label" : { "default" : "vTM Configuration" },
+          "Parameters" : [ "vTMVers", "InstanceType", "KeyName", "AdminPass", "vTMUserData" ]
+        },
+        {
+          "Label" : { "default" : "Security Configuration" },
+          "Parameters" : [ "EnvSGs", "RemoteAccessCIDR" ]
+        }
+      ],
+      "ParameterLabels" : {
+        "VPC" : { "default" : "ID of an existing VPC:" },
+        "VPCCIDR" : { "default" : "VPC CIDR Block:" },
+        "PublicSubnet1" : {"default" : "Public Subnet 1:"},
+        "PublicSubnet2" : {"default" : "Public Subnet 2:"},
+        "InstanceType" : { "default" : "vTM instance type:" },
+        "vTMVers" : { "default" : "vTM Version:" },
+        "KeyName" : { "default" : "SSH Key Name:" },
+        "AdminPass" : { "default" : "vTM admin user password:" },
+        "vTMUserData" : { "default" : "UserData from Services Director Cloud Registration:" },
+        "EnvSGs" : { "default" : "List of additional Security Groups for vTMs:" },
+        "RemoteAccessCIDR" : { "default" : "Remote Access CIDR:" }
+      }
+    }
+  },
+
+  "Parameters": {
+    "InstanceType": {
+      "Description": "Please select a vTM EC2 instance type",
+      "Type": "String",
+      "Default": "m4.large",
+      "AllowedValues": [
+        "c4.2xlarge",
+        "c4.4xlarge",
+        "c4.8xlarge",
+        "c4.large",
+        "c4.xlarge",
+        "d2.2xlarge",
+        "d2.4xlarge",
+        "d2.8xlarge",
+        "d2.xlarge",
+        "i2.2xlarge",
+        "i2.4xlarge",
+        "i2.8xlarge",
+        "i2.xlarge",
+        "i3.16xlarge",
+        "i3.2xlarge",
+        "i3.4xlarge",
+        "i3.8xlarge",
+        "i3.large",
+        "i3.xlarge",
+        "m4.10xlarge",
+        "m4.16xlarge",
+        "m4.2xlarge",
+        "m4.4xlarge",
+        "m4.large",
+        "m4.xlarge",
+        "r3.2xlarge",
+        "r3.4xlarge",
+        "r3.8xlarge",
+        "r3.large",
+        "r3.xlarge",
+        "r4.16xlarge",
+        "r4.2xlarge",
+        "r4.4xlarge",
+        "r4.8xlarge",
+        "r4.large",
+        "r4.xlarge",
+        "t2.2xlarge",
+        "t2.large",
+        "t2.medium",
+        "t2.xlarge",
+        "x1.16xlarge",
+        "x1.32xlarge"
+      ],
+      "ConstraintDescription": "Must be an allowed EC2 instance type."
+    },
+
+    "vTMUserData" : {
+      "Type" : "String",
+      "Description" : "UserData keys from Services Director Cloud Registration. Make sure to delete the 'password' key to avoid conflict with the 'AdminPass' parameter."
+    },
+
+    "vTMVers" : {
+      "Description" : "Please select vTM version:",
+      "Type" : "String",
+      "Default" : "181",
+      "AllowedValues" : [
+        "172r2",
+        "173",
+        "174",
+        "181"
+      ],
+      "ConstraintDescription" : "Must be a valid vTM version"
+    },
+
+    "KeyName": {
+      "Type": "AWS::EC2::KeyPair::KeyName",
+      "AllowedPattern" : "[-_ a-zA-Z0-9]+",
+      "Description": "Name of an existing EC2 KeyPair. Your vTMs will launch with this KeyPair.",
+      "ConstraintDescription": "Must be the name of an existing EC2 KeyPair."
+    },
+
+    "AdminPass": {
+      "Description" : "Password for the vTM admin user. Must be 6 to 32 characters containing letters, numbers and symbols",
+      "Type"        : "String",
+      "MinLength"   : "6",
+      "MaxLength"   : "32",
+      "AllowedPattern" : "(?=^.{6,255}$)((?=.*\\d)(?=.*[A-Z])(?=.*[a-z])|(?=.*\\d)(?=.*[^A-Za-z0-9])(?=.*[a-z])|(?=.*[^A-Za-z0-9])(?=.*[A-Z])(?=.*[a-z])|(?=.*\\d)(?=.*[A-Z])(?=.*[^A-Za-z0-9]))^.*",
+      "NoEcho"         : "true"
+    },
+
+    "EnvSGs": {
+      "Description": "Comma-delimited list of additional security groups vTMs should belong to.",
+      "Type": "CommaDelimitedList",
+      "ConstraintDescription": "must be a list of EC2 security group ids"
+    },
+
+    "RemoteAccessCIDR": {
+      "Description": "Allowed source IP address range for SSH access into vTM",
+      "Type": "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "AllowedPattern": "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/([0-9]|[1-2][0-9]|3[0-2]))$",
+      "ConstraintDescription": "Must be a valid CIDR range of the form x.x.x.x/x."
+    },
+
+    "VPC": {
+      "Description": "VPC to deploy into.",
+      "Type": "AWS::EC2::VPC::Id",
+      "AllowedPattern": "^vpc-[0-9a-z]{8}",
+      "ConstraintDescription": "VPC ID must be specified."
+    },
+
+    "VPCCIDR": {
+      "Description": "This is the IP block of the selected VPC; used for vTMs' Security Group.",
+      "Type": "String",
+      "AllowedPattern": "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])(\\/([0-9]|[1-2][0-9]|3[0-2]))$",
+      "ConstraintDescription": "Must be a valid CIDR range of the form x.x.x.x/x."
+    },
+
+    "PublicSubnet1": {
+      "Description": "Public Subnet 1 from an existing VPC.",
+      "Type": "AWS::EC2::Subnet::Id",
+      "AllowedPattern": "^subnet-[0-9a-z]{8}",
+      "ConstraintDescription": "Subnet must be specified."
+    },
+
+    "PublicSubnet2": {
+      "Description": "Public Subnet 2 from an existing VPC.",
+      "Type": "AWS::EC2::Subnet::Id",
+      "AllowedPattern": "^subnet-[0-9a-z]{8}",
+      "ConstraintDescription": "Subnet must be specified."
+    }
+
+  },
+
+  "Mappings" : {
+
+    "vTMAMI" : {
+      "ap-south-1" : { "172r2" : "ami-94e5c5fb", "173" : "ami-8fc9b7e0", "174" : "ami-052c6f6a", "181" : "ami-bbe3c3d4" },
+      "eu-west-3" : { "172r2" : "ami-69972614", "173" : "ami-aae156d7", "174" : "ami-abc671d6", "181" : "ami-2bbd0c56" },
+      "eu-west-2" : { "172r2" : "ami-01f71566", "173" : "ami-bccfd9d8", "174" : "ami-24beac40", "181" : "ami-bde90bda" },
+      "eu-west-1" : { "172r2" : "ami-47c7ef3e", "173" : "ami-352fce4c", "174" : "ami-0eed3f77", "181" : "ami-82c5edfb" },
+      "ap-northeast-2" : { "172r2" : "ami-e86ec786", "173" : "ami-9fbf61f1", "174" : "ami-16fb5e78", "181" : "ami-1c6ec772" },
+      "ap-northeast-1" : { "172r2" : "ami-7fa84400", "173" : "ami-f61e0191", "174" : "ami-3027f856", "181" : "ami-a658b5d9" },
+      "sa-east-1" : { "172r2" : "ami-35bfed59", "173" : "ami-0b7f0a67", "174" : "ami-704c321c", "181" : "ami-abbeecc7" },
+      "ca-central-1" : { "172r2" : "ami-66d25202", "173" : "ami-ec7ac588", "174" : "ami-97f24af3", "181" : "ami-cad050ae" },
+      "ap-southeast-1" : { "172r2" : "ami-ed6f4491", "173" : "ami-1abb3179", "174" : "ami-7e077c1d", "181" : "ami-136b406f" },
+      "ap-southeast-2" : { "172r2" : "ami-31fb2f53", "173" : "ami-a1ccdec2", "174" : "ami-311dff53", "181" : "ami-8ff92ded" },
+      "eu-central-1" : { "172r2" : "ami-3bc9e9d0", "173" : "ami-d66fcfb9", "174" : "ami-1577c87a", "181" : "ami-a0c7e74b" },
+      "us-east-1" : { "172r2" : "ami-e9813a96", "173" : "ami-268c8930", "174" : "ami-cdea22b7", "181" : "ami-5b8b3024" },
+      "us-east-2" : { "172r2" : "ami-02ad9f67", "173" : "ami-d4e2c3b1", "174" : "ami-1e765a7b", "181" : "ami-4eac9e2b" },
+      "us-west-1" : { "172r2" : "ami-ad706fcd", "173" : "ami-6be4cb0b", "174" : "ami-70467410", "181" : "ami-5f716e3f" },
+      "us-west-2" : { "172r2" : "ami-f5493d8d", "173" : "ami-5e2b3827", "174" : "ami-7430f60c", "181" : "ami-a74d39df" }
+    }
+
+  },
+
+  "Conditions" : {
+    "MoreSGs": { "Fn::Not": [
+        { "Fn::Equals": [ "",
+            { "Fn::Join": [ "", { "Ref": "EnvSGs" } ] }
+        ] }
+    ] }
+  },
+
+  "Resources": {
+
+    "vTMSecurityGroup": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "vTM Access Rules",
+        "VpcId": {
+          "Ref": "VPC"
+        },
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "icmp",
+            "FromPort": "-1",
+            "ToPort": "-1",
+            "CidrIp": { "Ref": "VPCCIDR" }
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "22",
+            "ToPort": "22",
+            "CidrIp": { "Ref": "RemoteAccessCIDR" }
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "9090",
+            "ToPort": "9090",
+            "CidrIp": { "Ref": "RemoteAccessCIDR" }
+          },
+          {
+            "IpProtocol": "udp",
+            "FromPort": "9090",
+            "ToPort": "9090",
+            "CidrIp": { "Ref": "VPCCIDR" }
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "9080",
+            "ToPort": "9080",
+            "CidrIp": { "Ref": "VPCCIDR" }
+          },
+          {
+            "IpProtocol": "udp",
+            "FromPort": "9080",
+            "ToPort": "9080",
+            "CidrIp": { "Ref": "VPCCIDR" }
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "8083",
+            "ToPort": "8083",
+            "CidrIp": { "Ref": "VPCCIDR" }
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "8086",
+            "ToPort": "8086",
+            "CidrIp": { "Ref": "VPCCIDR" }
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "11000",
+            "ToPort": "11000",
+            "CidrIp": { "Ref": "VPCCIDR" }
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "11002",
+            "ToPort": "11002",
+            "CidrIp": { "Ref": "VPCCIDR" }
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "11007",
+            "ToPort": "11007",
+            "CidrIp": { "Ref": "VPCCIDR" }
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "9070",
+            "ToPort": "9070",
+            "CidrIp": { "Ref": "RemoteAccessCIDR" }
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "8092",
+            "ToPort": "8092",
+            "CidrIp": { "Ref": "VPCCIDR" }
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "80",
+            "ToPort": "80",
+            "CidrIp": "0.0.0.0/0"
+          },
+          {
+            "IpProtocol": "tcp",
+            "FromPort": "443",
+            "ToPort": "443",
+            "CidrIp": "0.0.0.0/0"
+          }
+        ],
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": { "Fn::Join": [ "-", [ { "Ref": "AWS::StackName" }, "vTMSG" ] ] }
+          }
+        ]
+      }
+    },
+
+    "vTMIAMRole": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Version" : "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {
+                "Service": [ "ec2.amazonaws.com" ]
+              },
+              "Action": [ "sts:AssumeRole" ]
+            }
+          ]
+        },
+        "Path": "/",
+        "Policies": [
+          {
+            "PolicyName": "vTMIAMPolicy",
+            "PolicyDocument": {
+              "Version" : "2012-10-17",
+              "Statement": [
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "ec2:DescribeRegions",
+                    "ec2:DescribeInstances",
+                    "ec2:DescribeAddresses",
+                    "ec2:DescribeNetworkInterfaces",
+                    "ec2:AssociateAddress",
+                    "ec2:DisassociateAddress",
+                    "ec2:AllocateAddress",
+                    "ec2:ReleaseAddress",
+                    "ec2:AssignPrivateIPAddresses",
+                    "ec2:UnAssignPrivateIpAddresses"
+                  ],
+                  "Resource": "*"
+                },
+                {
+                  "Effect": "Allow",
+                  "Action": [
+                    "ec2:RunInstances",
+                    "ec2:TerminateInstances",
+                    "ec2:CreateTags",
+                    "ec2:DeleteTags"
+                  ],
+                  "Resource": "arn:aws:ec2:*"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    },
+
+    "vTMInstanceIAMProfile": {
+      "Type": "AWS::IAM::InstanceProfile",
+      "Properties": {
+        "Path": "/",
+        "Roles": [
+          {
+            "Ref": "vTMIAMRole"
+          }
+        ]
+      }
+    },
+
+    "vTMGroup": {
+      "Type": "AWS::AutoScaling::AutoScalingGroup",
+      "Properties": {
+        "AutoScalingGroupName" : { "Fn::Join": [ "-", [ { "Ref": "AWS::StackName" }, "vTMASG" ] ] },
+        "Tags": [
+          {
+            "Key": "Name",
+            "Value": { "Fn::Join": [ "-", [ { "Ref": "AWS::StackName" }, "vTM" ] ] },
+            "PropagateAtLaunch": "true"
+          },
+          {
+            "Key": "ClusterID",
+            "Value": { "Fn::Join": [ "-", [ { "Ref": "AWS::StackName" }, "vTM-Cluster" ] ] },
+            "PropagateAtLaunch": "true"
+          }
+        ],
+        "LaunchConfigurationName": {
+          "Ref": "vTMLaunchConfig"
+        },
+        "MinSize": "2",
+        "MaxSize": "2",
+        "DesiredCapacity": "2",
+        "VPCZoneIdentifier": [
+          { "Ref": "PublicSubnet1" },
+          { "Ref": "PublicSubnet2" }
+        ]
+      }
+    },
+
+    "vTMLaunchConfig": {
+      "Type": "AWS::AutoScaling::LaunchConfiguration",
+      "Metadata" : {
+        "AWS::CloudFormation::Init" : {
+          "configSets" : {
+            "default" : [ "CreateFiles", "RunCommands" ]
+          },
+
+          "CreateFiles" : {
+            "files" : {
+              "/tmp/autocluster.sh" : {
+                "source": "https://raw.githubusercontent.com/dkalintsev/Pulse-vTM-CloudFormation/v1.0.0/Scripts/autocluster.sh",
+                "context": {
+                  "ClusterID": { "Fn::Join": [ "-", [
+                    { "Ref": "AWS::StackName" },
+                    "vTM-Cluster"
+                  ]]},
+                  "Verbose": "Yes"
+                },
+                "mode": "000755",
+                "owner": "root"
+              },
+              "/tmp/housekeeper.sh" : {
+                "source": "https://raw.githubusercontent.com/dkalintsev/Pulse-vTM-CloudFormation/v1.0.0/Scripts/housekeeper.sh",
+                "context": {
+                  "ClusterID": { "Fn::Join": [ "-", [
+                    { "Ref": "AWS::StackName" },
+                    "vTM-Cluster"
+                  ]]},
+                  "Verbose": "Yes"
+                },
+                "mode": "000755",
+                "owner": "root"
+              },
+              "/tmp/setup_stuff.sh" : {
+                "content": { "Fn::Join": [ "", [
+                  "#!/bin/bash\n",
+                  "echo \"developer_mode_accepted     yes\" >> /opt/zeus/zxtm/global.cfg\n",
+                  "echo \"rest!enabled     Yes\" >> /opt/zeus/zxtm/conf/settings.cfg\n",
+                  "sed -i -e \"/flipper.autofailback/d\" /opt/zeus/zxtm/conf/settings.cfg\n",
+                  "echo 'flipper!autofailback     Yes' >> /opt/zeus/zxtm/conf/settings.cfg\n",
+                  "cd /tmp\n",
+                  "curl -s -LO https://s3.amazonaws.com/aws-cli/awscli-bundle.zip\n",
+                  "unzip awscli-bundle.zip\n",
+                  "./awscli-bundle/install -i /usr/local/aws -b /usr/local/bin/aws\n",
+                  "rm -rf awscli*\n",
+                  "curl -s -LO https://github.com/stedolan/jq/releases/download/jq-1.5/jq-linux64\n",
+                  "mv jq-linux64 /usr/local/bin/jq\n",
+                  "chmod +x /usr/local/bin/jq\n",
+                  "mkdir -p /opt/aws\n",
+                  "mv /tmp/housekeeper.sh /opt/aws/\n",
+                  "rm -f /tmp/ctab.txt\n",
+                  "echo \"*/2 * * * * /opt/aws/housekeeper.sh > /var/log/housekeeper-out.log 2>&1\" > /tmp/ctab.txt\n",
+                  "exit 0\n",
+                  "\n"
+                ]]},
+                "mode": "000755",
+                "owner": "root"
+              }
+            }
+          },
+
+          "RunCommands" : {
+            "commands" : {
+
+              "01-run_setup_stuff" : {
+                "command" : "/tmp/setup_stuff.sh"
+              },
+
+              "02-del_setup_script" : {
+                "command" : "rm -f /tmp/setup_stuff.sh"
+              },
+
+              "05-add_crontab" : {
+                "command" : "crontab /tmp/ctab.txt"
+              },
+
+              "06-del_ctab_txt" : {
+                "command" : "rm -f /tmp/ctab.txt"
+              },
+
+              "99-wait_1_min_then_signal_that_we_are_done" : {
+                "command" : { "Fn::Join" : [ "", [
+                  "/usr/local/bin/cfn-signal -e 0 ",
+                  "-d $(curl -s http://169.254.169.254/latest/meta-data/public-ipv4) ",
+                  "'",
+                  { "Ref" : "WaitHandle01" },
+                  "'"
+                ]]}
+              }
+
+            }
+          }
+        }
+      },
+
+      "Properties": {
+        "IamInstanceProfile": { "Ref": "vTMInstanceIAMProfile"},
+        "InstanceType": {
+          "Ref": "InstanceType"
+        },
+        "KeyName": {
+          "Ref": "KeyName"
+        },
+        "AssociatePublicIpAddress": "true",
+        "ImageId": {
+          "Fn::FindInMap": [
+            "vTMAMI",
+            { "Ref": "AWS::Region" },
+            { "Ref": "vTMVers" }
+          ]
+        },
+        "SecurityGroups": {
+            "Fn::If": [
+                "MoreSGs",
+                { "Fn::Split": [ ",",
+                    { "Fn::Join": [ ",", [
+                        { "Ref": "vTMSecurityGroup" },
+                        { "Fn::Join": [ ",", { "Ref": "EnvSGs" } ] }
+                    ] ] }
+                ] },
+                { "Fn::Split": [ ",", 
+                    { "Ref": "vTMSecurityGroup" }
+                ] }
+            ]
+        },
+        "UserData" : { "Fn::Base64" : { "Fn::Join" : [ "", [
+          "password=",
+            { "Ref" : "AdminPass" },
+            "\n",
+          "accept_license=y\n",
+          "cfn_stack=",
+            { "Ref" : "AWS::StackName" },
+            "\n",
+          "cfn_resource=",
+            "vTMLaunchConfig\n",
+          "cfn_region=",
+            { "Ref" : "AWS::Region" },
+            "\n",
+            { "Ref": "vTMUserData" }
+        ]]}}
+      }
+    },
+
+
+    "WaitHandle01": {
+        "Type": "AWS::CloudFormation::WaitConditionHandle",
+        "Properties": {}
+    },
+
+    "WaitCondition01": {
+        "Type": "AWS::CloudFormation::WaitCondition",
+        "DependsOn": "vTMGroup",
+        "Properties": {
+            "Handle": {
+                "Ref": "WaitHandle01"
+            },
+            "Timeout": "600",
+            "Count": "2"
+        }
+    }
+
+  },
+
+  "Outputs": {
+
+    "vTMManagementIPs": {
+      "Value": {
+        "Fn::GetAtt": [
+          "WaitCondition01",
+          "Data"
+        ]
+      },
+      "Description": "The public IP addresses of the 2 x vTM instances."
+    }
+
+  }
+}
