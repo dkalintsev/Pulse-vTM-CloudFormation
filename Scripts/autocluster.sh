@@ -4,7 +4,7 @@
 #
 # This script is customised during vADC instance deployment by cfn-init
 # Please see example usage in the CloudFormation template:
-# https://github.com/dkalintsev/vADC-CloudFormation/raw/master/Template/vADC-ASG-Puppet.template
+# https://github.com/dkalintsev/Pulse-vTM-CloudFormation/blob/v1.0.0/vTM-cluster-existing-VPC.template#L415
 #
 # The purpose of this script is to form a new vADC cluster or join an existing one.
 #
