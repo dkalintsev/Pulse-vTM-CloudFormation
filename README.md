@@ -1,5 +1,9 @@
 # Cluster of 2 x Pulse vTMs for deploying into an existing VPC
 
+## Disclaimer
+
+Please treat this template as **unofficial** and **unsupported** inspiration for **your own** production-ready version. GitHub issues opened against it will be addressed as best effort.
+
 ## What does this template do
 
 Given an ID of an existing VPC, its CIDR, and Subnet IDs of two **public** subnets, this template will deploy a pair of Pulse vTMs using an Auto Scaling Group. It is highly recommended (but not required) that the two subnets belong to different Availability Zones (AZ), to ensure vTM cluster redundancy.
