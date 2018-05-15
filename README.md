@@ -127,6 +127,14 @@ Briefly, the automatic clustering logic from the point of view of a vTM that run
 - If found, attempt to join that instance's cluster. If found more than one, select a random one for join operation. Once join succeeds, set `ClusterState` to `Active`, and exit.
 - If not found, set own tag `ClusterState` to `Active`, and exit.
 
+### Integration with external vTM configuration automation
+
+When vTM cluster configuration is managed by an external automation, it is important to know how to find a vTM that is "safe" to apply configuration to, i.e., the one that will act in the expected manner (retain the applied config, replicate it to other cluster members).
+
+One way to do this with vTMs in deployed by this template is to look for vTM EC2 instances with tag `ClusterID` set to the one of the chosen cluster, and `ClusterState` tag with the value of `Active`. If multiple results are returned, you can choose a random one to connect to.
+
+> **Note:** this template sets `ClusterID` tag on vTM EC2 instances to the name of the CloudFormation Stack + the string "`-vTM-Cluster`". For example, if you called your CloudFormation stack "`Edge-LBs-001`", this template will set the `ClusterID` tag on vTMs to "`Edge-LBs-001-vTM-Cluster`".
+
 ## Tools
 
 `vTM-amis.sh` in the `Tools` directory is used to build a list of vTM AMIs. By default the template uses the AMIs of the Developer Edition of vTM. Use this tool to build a list of AMIs of any other listed SKU of the Pulse vTM, if necessary.
