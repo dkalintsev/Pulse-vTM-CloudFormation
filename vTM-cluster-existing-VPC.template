@@ -12,7 +12,7 @@
 
         {
           "Label" : { "default" : "vTM Configuration" },
-          "Parameters" : [ "vTMVers", "InstanceType", "KeyName", "AdminPass", "vTMUserData" ]
+          "Parameters" : [ "vTMVers", "InstanceType", "vTMQty", "KeyName", "AdminPass", "vTMUserData" ]
         },
         {
           "Label" : { "default" : "Security Configuration" },
@@ -25,6 +25,7 @@
         "PublicSubnet1" : {"default" : "Public Subnet 1:"},
         "PublicSubnet2" : {"default" : "Public Subnet 2:"},
         "InstanceType" : { "default" : "vTM instance type:" },
+        "vTMQty" : { "default" : "Number of vTM instances to deploy:" },
         "vTMVers" : { "default" : "vTM Version:" },
         "KeyName" : { "default" : "SSH Key Name:" },
         "AdminPass" : { "default" : "vTM admin user password:" },
@@ -85,6 +86,14 @@
         "x1.32xlarge"
       ],
       "ConstraintDescription": "Must be an allowed EC2 instance type."
+    },
+
+    "vTMQty" : {
+      "Type" : "Number",
+      "Description" : "How many vTM instances to deploy, 1..4.",
+      "MinValue" : "1",
+      "MaxValue" : "4",
+      "Default" : "2"
     },
 
     "vTMUserData" : {
@@ -392,9 +401,9 @@
         "LaunchConfigurationName": {
           "Ref": "vTMLaunchConfig"
         },
-        "MinSize": "2",
-        "MaxSize": "2",
-        "DesiredCapacity": "2",
+        "MinSize": { "Ref": "vTMQty" },
+        "MaxSize": { "Ref": "vTMQty" },
+        "DesiredCapacity": { "Ref": "vTMQty" },
         "VPCZoneIdentifier": [
           { "Ref": "PublicSubnet1" },
           { "Ref": "PublicSubnet2" }
@@ -560,7 +569,7 @@
                 "Ref": "WaitHandle01"
             },
             "Timeout": "600",
-            "Count": "2"
+            "Count": { "Ref": "vTMQty" }
         }
     }
 
@@ -575,7 +584,7 @@
           "Data"
         ]
       },
-      "Description": "The public IP addresses of the 2 x vTM instances."
+      "Description": "Public IP addresses of the vTM instances."
     }
 
   }

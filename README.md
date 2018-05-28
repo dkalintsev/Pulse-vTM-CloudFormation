@@ -10,7 +10,7 @@ Given an ID of an existing VPC, its CIDR, and Subnet IDs of two **public** subne
 
 vTMs will be automatically clustered together and ready to take configuration both through REST API (e.g., using [Terraform Provider](https://github.com/pulse-vadc/terraform-provider-vtm) for vTM), or Web UI.
 
-It will be possible to adjust the size of the Auto Scaling Group at later stage, which will add or remove vTMs in the cluster.
+It is possible to adjust the size of the Auto Scaling Group after deploy, or by specifying a different number to the `vTMQty` parameter during deploy, which will adjust the number of vTMs in the cluster accordingly.
 
 > **Note**: if you're using `Traffic IP Groups` (TIP Groups), you will need to adjust your TIP Groups configuration every time cluster membership changes.
 
@@ -57,6 +57,7 @@ If you are using Pulse Services Director (SD) to supply vTMs with licenses, SD m
 | --- | ---
 | vTMVers | De-dotted version of vTM to deploy; e.g., `18.1` would be specified as `181`. Supported values are `172r2`, `173`, `174`, and `181`.
 | InstanceType | AWS EC2 instance type to use for vTM instances; default = `m4.large`; see the template source for the full list.<br/>Please make sure that the instance type you select is available in the AWS region you're deploying into; for example m4.* instances are not available in newer regions.
+| vTMQty | Number of vTM instances to deploy into a cluster, `1` to `4`. The default is `2`.
 | KeyName | SSH Key Pair name to use for vTM instances. This is used for SSH access to vTMs using `admin` username.
 | AdminPass | Password for the `admin` user, 6 to 32 characters, containing letters, numbers, and symbols.
 | vTMUserData | A string of `key=value` vTM UserData parameters separated by spaces or newline characters. Supported keys are documented in [vTM Cloud Services Installation and Getting Started Guide](https://www.pulsesecure.net/download/techpubs/current/1256/Pulse-vADC-Solutions/Pulse-Virtual-Traffic-Manager/18.1/ps-vtm-18.1-cloud-gsg.pdf). Typically this would be used to supply set of keys provided by a Cloud Registration created by admin of the Pulse Services Director to cause vTMs attempt self-registration with the SD for licensing and management.<br/><br/>**Note:** SD Cloud Registration usually contains key `password` which should not be supplied through this parameter. This template supplies `password` through the separate input Parameter `AdminPass` described above.
@@ -70,7 +71,7 @@ If you are using Pulse Services Director (SD) to supply vTMs with licenses, SD m
 
 ## Outputs
 
-At present, template produces a single output `vTMManagementIPs` which contains the EC2 instance IDs of the two vTM instances with their public IP addresses. An example output:
+At present, template produces a single output `vTMManagementIPs` which contains the EC2 instance IDs of the vTM instances with their public IP addresses. An example output with two (default) vTMs:
 
 `{"i-0eca298092a7df302":"13.126.50.207","i-069922090ffbcc7e7":"35.154.97.237"}`
 
@@ -78,7 +79,7 @@ At present, template produces a single output `vTMManagementIPs` which contains 
 
 ### vTM EC2 instance and Cluster management
 
-This template manages vTM EC2 instances through an AWS Auto Scaling Group (ASG). This ASG is configured with default settings of `MinSize`, `MaxSize`, and `DesiredCapacity` all set to `2`.
+This template manages vTM EC2 instances through an AWS Auto Scaling Group (ASG). This ASG is configured with default settings of `MinSize`, `MaxSize`, and `DesiredCapacity` all set to the value of Parameter `vTMQty`, with the default of `2`.
 
 At present, ASG **is not** configured to receive signals from CloudWatch that could change the size of the ASG based on the vTM EC2 instances' resource utilisation. If ASG configuration is adjusted by hand, the ASG/vTM setup will accommodate the change by expanding or shrinking the vTM cluster accordingly. It is also capable of recovering from a complete loss of all vTM instances in the cluster.
 
