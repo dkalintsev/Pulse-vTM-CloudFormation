@@ -12,7 +12,7 @@
 
         {
           "Label" : { "default" : "vTM Configuration" },
-          "Parameters" : [ "vTMVers", "InstanceType", "vTMQty", "KeyName", "AdminPass", "vTMUserData" ]
+          "Parameters" : [ "vTMVers", "InstanceType", "vTMQty", "WaitFor", "KeyName", "AdminPass", "vTMUserData" ]
         },
         {
           "Label" : { "default" : "Security Configuration" },
@@ -26,6 +26,7 @@
         "PublicSubnet2" : {"default" : "Public Subnet 2:"},
         "InstanceType" : { "default" : "vTM instance type:" },
         "vTMQty" : { "default" : "Number of vTM instances to deploy:" },
+        "WaitFor" : { "default" : "Number of vTMs to wait for during initial deploy. DO NOT change for stack update:" },
         "vTMVers" : { "default" : "vTM Version:" },
         "KeyName" : { "default" : "SSH Key Name:" },
         "AdminPass" : { "default" : "vTM admin user password:" },
@@ -38,7 +39,7 @@
 
   "Parameters": {
     "InstanceType": {
-      "Description": "Please select a vTM EC2 instance type",
+      "Description": "Please make sure the selected instance type is available in the region you're deploying into.",
       "Type": "String",
       "Default": "m4.large",
       "AllowedValues": [
@@ -90,7 +91,15 @@
 
     "vTMQty" : {
       "Type" : "Number",
-      "Description" : "How many vTM instances to deploy, 1..4.",
+      "Description" : "A number between 1 and 4.",
+      "MinValue" : "1",
+      "MaxValue" : "4",
+      "Default" : "2"
+    },
+
+    "WaitFor" : {
+      "Type" : "Number",
+      "Description" : "This should match the number of vTMs you're deploying initially. DO NOT update this parameter when changing the number of vTMs in an existing stack, as WaitCondition driven by this parameter doesn't support Update method.",
       "MinValue" : "1",
       "MaxValue" : "4",
       "Default" : "2"
@@ -102,7 +111,7 @@
     },
 
     "vTMVers" : {
-      "Description" : "Please select vTM version:",
+      "Description" : "In this list a dot is removed from the version, e.g., '181' is '18.1'",
       "Type" : "String",
       "Default" : "181",
       "AllowedValues" : [
@@ -167,7 +176,7 @@
     },
 
     "PublicSubnet2": {
-      "Description": "Public Subnet 2 from an existing VPC.",
+      "Description": "Public Subnet 2 from an existing VPC. Can be the same as the Public Subnet 1.",
       "Type": "AWS::EC2::Subnet::Id",
       "AllowedPattern": "^subnet-[0-9a-z]{8}",
       "ConstraintDescription": "Subnet must be specified."
@@ -569,7 +578,7 @@
                 "Ref": "WaitHandle01"
             },
             "Timeout": "600",
-            "Count": { "Ref": "vTMQty" }
+            "Count": { "Ref": "WaitFor" }
         }
     }
 

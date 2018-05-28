@@ -58,6 +58,7 @@ If you are using Pulse Services Director (SD) to supply vTMs with licenses, SD m
 | vTMVers | De-dotted version of vTM to deploy; e.g., `18.1` would be specified as `181`. Supported values are `172r2`, `173`, `174`, and `181`.
 | InstanceType | AWS EC2 instance type to use for vTM instances; default = `m4.large`; see the template source for the full list.<br/>Please make sure that the instance type you select is available in the AWS region you're deploying into; for example m4.* instances are not available in newer regions.
 | vTMQty | Number of vTM instances to deploy into a cluster, `1` to `4`. The default is `2`.
+| WaitFor | Number of vTM instances to wait for deploying in WaitHandler, `1` to `4`. The default is `2`, and it should match the number of vTMs specified in `vTMQty`, **but only on initial deploy**. DO NOT change this parameter's value if running a stack `Update`, or the update will fail because `AWS::CloudFormation::WaitCondition` doesn't support stack `Update` method.<br/><br/>This means you can't update the `vTMManagementIPs` output.
 | KeyName | SSH Key Pair name to use for vTM instances. This is used for SSH access to vTMs using `admin` username.
 | AdminPass | Password for the `admin` user, 6 to 32 characters, containing letters, numbers, and symbols.
 | vTMUserData | A string of `key=value` vTM UserData parameters separated by spaces or newline characters. Supported keys are documented in [vTM Cloud Services Installation and Getting Started Guide](https://www.pulsesecure.net/download/techpubs/current/1256/Pulse-vADC-Solutions/Pulse-Virtual-Traffic-Manager/18.1/ps-vtm-18.1-cloud-gsg.pdf). Typically this would be used to supply set of keys provided by a Cloud Registration created by admin of the Pulse Services Director to cause vTMs attempt self-registration with the SD for licensing and management.<br/><br/>**Note:** SD Cloud Registration usually contains key `password` which should not be supplied through this parameter. This template supplies `password` through the separate input Parameter `AdminPass` described above.
@@ -74,6 +75,8 @@ If you are using Pulse Services Director (SD) to supply vTMs with licenses, SD m
 At present, template produces a single output `vTMManagementIPs` which contains the EC2 instance IDs of the vTM instances with their public IP addresses. An example output with two (default) vTMs:
 
 `{"i-0eca298092a7df302":"13.126.50.207","i-069922090ffbcc7e7":"35.154.97.237"}`
+
+**Note:** As mentioned above in `WaitFor` Parameter description, this output is only accurate and useful during the initial deploy of the template. If you run stack update (e.g., to change the number of vTMs in your cluster), or if the Auto Scaling Group that manages vTMs makes some changes (starts / terminates instances), this Output will get out of sync, and currently there is no way to refresh it.
 
 ## Implemented functionality
 
