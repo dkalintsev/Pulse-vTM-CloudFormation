@@ -90,6 +90,8 @@ At present, ASG **is not** configured to receive signals from CloudWatch that co
 
 > A very simple implementation of such system can be found in [UpdateClusterConfig.sh](https://github.com/dkalintsev/vADC-CloudFormation/blob/v1.1.2/Template/UpdateClusterConfig.sh) script (not a part of this template) that can run as a cron job from a separate EC2 instance to perform these two functions.
 
+> **Note 2:** when a vTM cluster is scaled down, a script that runs from a cron job on all vTMs will clean up the vTM nodes that have been terminated. This script relies on an internal mechanism that determines a "cluster leader", which is the vTM where the config clean-up will be performed. This internal mechanism, in turn, depends on vTM configuration - for it to work, there must be at least one Traffic IP Group, or a Service Discovery pool present. If neither of these exist in your vTM cluster's config, cluster clean-up on scale-down may not work.
+
 ### Integration with Pulse Services Director
 
 If `vTMUserData` contains a set of keys that instruct vTM instances to attempt self-registration with Pulse Services Director (SD), the following factors need to be considered:

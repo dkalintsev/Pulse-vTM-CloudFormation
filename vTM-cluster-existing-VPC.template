@@ -472,7 +472,7 @@
                   "mkdir -p /opt/aws\n",
                   "mv /tmp/housekeeper.sh /opt/aws/\n",
                   "rm -f /tmp/ctab.txt\n",
-                  "echo \"*/2 * * * * /opt/aws/housekeeper.sh > /var/log/housekeeper-out.log 2>&1\" > /tmp/ctab.txt\n",
+                  "echo \"*/2 * * * * /opt/aws/housekeeper.sh >> /var/log/housekeeper-out.log 2>&1\" > /tmp/ctab.txt\n",
                   "exit 0\n",
                   "\n"
                 ]]},
