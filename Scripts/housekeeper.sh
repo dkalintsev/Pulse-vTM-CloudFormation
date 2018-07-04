@@ -163,17 +163,17 @@ findTaggedInstances () {
 #
 backoff=$RANDOM
 let "backoff %= 25"
-logMsg "022: Running initial backoff for $backoff seconds"
+logMsg "006: Running initial backoff for $backoff seconds"
 sleep $backoff
 
 cleanup
 touch $lockF
 
 if [[ -f /tmp/autocluster.sh ]]; then
-    logMsg "023: Found /tmp/autocluster.sh; running it.."
+    logMsg "007: Found /tmp/autocluster.sh; running it.."
     /tmp/autocluster.sh > /tmp/autocluster-out.log 2>&1
     rm -f /tmp/autocluster.sh
-    logMsg "024: /tmp/autocluster.sh finished and removed."
+    logMsg "008: /tmp/autocluster.sh finished and removed."
 fi
 
 declare -a list
@@ -199,9 +199,9 @@ if [[ "$?" == 0 ]]; then
     done
     unset tmpArray
     s_list=$(echo ${tipArray[@]/%/,} | sed -e "s/,$//g")
-    logMsg "025: Got Traffic IP groups: \"$s_list\""
+    logMsg "009: Got Traffic IP groups: \"$s_list\""
 else
-    logMsg "026: Error getting Traffic IP Groups; perhaps none configured yet"
+    logMsg "010: Error getting Traffic IP Groups; perhaps none configured yet"
 fi
 
 # Iterate over TIP Groups we found; count the total number of TIPs in all of them
@@ -221,9 +221,9 @@ for tipGroup in "${!tipArray[@]}"; do
             let "numTIPs += ${#tipIPArray[*]}"
         fi
         s_list=$(echo ${tipIPArray[@]/%/,} | sed -e "s/,$//g")
-        logMsg "027: Got Traffic IPs for TIP Group \"${tipArray[$tipGroup]}\": \"$s_list\"; numTIPs is now $numTIPs"
+        logMsg "011: Got Traffic IPs for TIP Group \"${tipArray[$tipGroup]}\": \"$s_list\"; numTIPs is now $numTIPs"
     else
-        logMsg "028: Error getting Traffic IPs from TIP Group \"${tipArray[$tipGroup]}\""
+        logMsg "012: Error getting Traffic IPs from TIP Group \"${tipArray[$tipGroup]}\""
     fi
 done
 
@@ -534,7 +534,7 @@ let "m = $maxPIPs - 1"
 maxPIPs=$m
 
 if (( "$numTIPs" > "$maxPIPs" )); then
-    logMsg "029: Asking for more private IPs (${numTIPs}) than our instance type ${instanceType} supports (${maxPIPs}); caping it."
+    logMsg "013: Asking for more private IPs (${numTIPs}) than our instance type ${instanceType} supports (${maxPIPs}); caping it."
     numTIPs="$maxPIPs"
 fi
 
@@ -560,11 +560,11 @@ myPrivateIPs=( $(cat $resFName | \
 # Compare the number of my secondary private IPs with the number of TIPs in my cluster
 if [[ "${#myPrivateIPs[*]}" != "$numTIPs" ]]; then
     # There's a difference; we need to adjust
-    logMsg "030: Need to adjust the number of private IPs. Have: ${#myPrivateIPs[*]}, need: $numTIPs"
+    logMsg "014: Need to adjust the number of private IPs. Have: ${#myPrivateIPs[*]}, need: $numTIPs"
     if (( $numTIPs > ${#myPrivateIPs[*]} )); then
         # Need to add IPs
         let "delta = $numTIPs - ${#myPrivateIPs[*]}"
-        logMsg "031: Adding $delta private IPs to ENI $eniID"
+        logMsg "015: Adding $delta private IPs to ENI $eniID"
         safe_aws ec2 assign-private-ip-addresses \
             --region $region \
             --network-interface-id $eniID \
@@ -583,7 +583,7 @@ if [[ "${#myPrivateIPs[*]}" != "$numTIPs" ]]; then
         let "delta = ${#myPrivateIPs[*]} - $numTIPs"
         # If we need to remove more IPs than we have without EIPs, then only remove those we can
         if (( $delta > ${#myFreePrivateIPs[*]} )); then
-            logMsg "032: Need to delete $delta, but can only do ${#myFreePrivateIPs[*]}; the rest is tied with EIPs."
+            logMsg "016: Need to delete $delta, but can only do ${#myFreePrivateIPs[*]}; the rest is tied with EIPs."
             delta=${#myFreePrivateIPs[*]}
         fi
         for ((i=0; i < $delta; i++)); do
@@ -591,7 +591,7 @@ if [[ "${#myPrivateIPs[*]}" != "$numTIPs" ]]; then
             let "num %= ${#myFreePrivateIPs[*]}"
             ipToDelete=${myFreePrivateIPs[$num]}
             let "j = i + 1"
-            logMsg "033: Deleting IP $j of $delta - $ipToDelete from ENI $eniID"
+            logMsg "017: Deleting IP $j of $delta - $ipToDelete from ENI $eniID"
             # Not using "safe_aws" here; it's OK to fail - we'll just retry the next time round.
             aws ec2 unassign-private-ip-addresses \
                 --region $region \
@@ -600,9 +600,9 @@ if [[ "${#myPrivateIPs[*]}" != "$numTIPs" ]]; then
             sleep 3
         done
     fi
-    logMsg "034: Done adjusting private IPs."
+    logMsg "018: Done adjusting private IPs."
 else
-    logMsg "035: No need to adjust private IPs."
+    logMsg "019: No need to adjust private IPs."
 fi
 
 # Get the cluster master vTM
@@ -610,30 +610,30 @@ fi
 firstWorking=$(curl -s http://localhost:9080/zxtm/flipper/firstworking -H "Commkey: $(cat ${ZEUSHOME}/zxtm/conf/commkey)")
 a=$(readlink -f ${ZEUSHOME}/zxtm/global.cfg)
 thisvTM=${a##*/}
-logMsg "000: Checking if this vTM is the cluster leader. firstWorking = ${firstWorking}; thisvTM = ${thisvTM}"
+logMsg "020: Checking if this vTM is the cluster leader. firstWorking = ${firstWorking}; thisvTM = ${thisvTM}"
 
 if [[ "$firstWorking" == "$thisvTM" ]]; then
-    logMsg "This vTM is the cluster leader; running the cleanup job."
+    logMsg "021s vTM is the cluster leader; running the cleanup job."
     # Next, do "garbage collection" on the terminated vTM instances, if any
     #
     # List running instances in our vADC cluster
-    logMsg "040: Checking running instances.."
+    logMsg "022: Checking running instances.."
     findTaggedInstances
     cat $jqResFName | sort -rn > $runningInstF
     # Sanity check - we should see ourselves in the $jqResFName
     list=( $(cat $jqResFName | grep "$myInstanceID") )
     if [[ ${#list[*]} == 0 ]]; then
         # LOL WAT
-        logMsg "041: Cant't seem to be able to find ourselves running; did you set ClusterID correctly? I have: \"$clusterID\". Bailing."
+        logMsg "023: Cant't seem to be able to find ourselves running; did you set ClusterID correctly? I have: \"$clusterID\". Bailing."
         exit 1
     fi
 
     # Go to cluster config dir, and look for instanceIDs in config files there
-    logMsg "042: Checking clustered instances.."
+    logMsg "024: Checking clustered instances.."
     cd $configDir
     grep -i instanceid * | awk '{print $2}' | sort -rn | uniq > $clusteredInstF
     # Compare the two, looking for lines that are present in the cluster config but missing in running list
-    logMsg "043: Comparing list of running and clustered instances.."
+    logMsg "025: Comparing list of running and clustered instances.."
     diff $clusteredInstF $runningInstF | awk '/^</ { print $2 }' > $deltaInstF
 
     # Check if our InstanceId is in the list of running
@@ -643,7 +643,7 @@ if [[ "$firstWorking" == "$thisvTM" ]]; then
         declare -a list
         list=( $(cat $deltaInstF) )
         s_list=$(echo ${list[@]/%/,} | sed -e "s/,$//g")
-        logMsg "044: Delta detected - need to do clean up the following instances: $s_list."
+        logMsg "026: Delta detected - need to do clean up the following instances: $s_list."
         for instId in ${list[@]}; do
             grep -l "$instId" * >> $filesF 2>/dev/null
         done
@@ -653,10 +653,10 @@ if [[ "$firstWorking" == "$thisvTM" ]]; then
             files=( $(cat $filesF) )
             IFS=$svIFS
             for file in "${files[@]}"; do
-                logMsg "045: Deleting $file.."
+                logMsg "027: Deleting $file.."
                 rm -f "$file"
             done
-            logMsg "046: Synchronising cluster state and sleeping to let things settle.."
+            logMsg "028: Synchronising cluster state and sleeping to let things settle.."
             # Create signal file. The traffic manager parent deletes this when its
             # finished reading the new config
             touch ${ZEUSHOME}/zxtm/internal/signal
@@ -669,12 +669,12 @@ if [[ "$firstWorking" == "$thisvTM" ]]; then
             fi
             $configSync
             sleep 30
-            logMsg "047: All done, exiting."
+            logMsg "029: All done, exiting."
         else
-            logMsg "048: Hmm, can't find config files with matching instanceIDs; maybe somebody deleted them already. Exiting."
+            logMsg "030: Hmm, can't find config files with matching instanceIDs; maybe somebody deleted them already. Exiting."
         fi
     else
-        logMsg "049: No delta, exiting."
+        logMsg "031: No delta, exiting."
     fi
 fi
 

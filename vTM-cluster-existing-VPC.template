@@ -410,8 +410,8 @@
         "LaunchConfigurationName": {
           "Ref": "vTMLaunchConfig"
         },
-        "MinSize": { "Ref": "vTMQty" },
-        "MaxSize": { "Ref": "vTMQty" },
+        "MinSize": "1",
+        "MaxSize": "6",
         "DesiredCapacity": { "Ref": "vTMQty" },
         "VPCZoneIdentifier": [
           { "Ref": "PublicSubnet1" },
@@ -431,7 +431,7 @@
           "CreateFiles" : {
             "files" : {
               "/tmp/autocluster.sh" : {
-                "source": "https://raw.githubusercontent.com/dkalintsev/Pulse-vTM-CloudFormation/v1.0.0/Scripts/autocluster.sh",
+                "source": "https://raw.githubusercontent.com/dkalintsev/Pulse-vTM-CloudFormation/v1.1.3/Scripts/autocluster.sh",
                 "context": {
                   "ClusterID": { "Fn::Join": [ "-", [
                     { "Ref": "AWS::StackName" },
@@ -443,7 +443,7 @@
                 "owner": "root"
               },
               "/tmp/housekeeper.sh" : {
-                "source": "https://raw.githubusercontent.com/dkalintsev/Pulse-vTM-CloudFormation/v1.0.0/Scripts/housekeeper.sh",
+                "source": "https://raw.githubusercontent.com/dkalintsev/Pulse-vTM-CloudFormation/v1.1.3/Scripts/housekeeper.sh",
                 "context": {
                   "ClusterID": { "Fn::Join": [ "-", [
                     { "Ref": "AWS::StackName" },
@@ -456,11 +456,12 @@
               },
               "/tmp/setup_stuff.sh" : {
                 "content": { "Fn::Join": [ "", [
-                  "#!/bin/bash\n",
-                  "echo \"developer_mode_accepted     yes\" >> /opt/zeus/zxtm/global.cfg\n",
-                  "echo \"rest!enabled     Yes\" >> /opt/zeus/zxtm/conf/settings.cfg\n",
-                  "sed -i -e \"/flipper.autofailback/d\" /opt/zeus/zxtm/conf/settings.cfg\n",
-                  "echo 'flipper!autofailback     Yes' >> /opt/zeus/zxtm/conf/settings.cfg\n",
+                  "#!/bin/bash -x\n",
+                  "echo 'developer_mode_accepted   yes' >> /opt/zeus/zxtm/global.cfg\n",
+                  "echo 'rest!enabled   Yes' >> /opt/zeus/zxtm/conf/settings.cfg\n",
+                  "sed -i -e '/flipper.autofailback/d' /opt/zeus/zxtm/conf/settings.cfg\n",
+                  "echo 'flipper!autofailback   Yes' >> /opt/zeus/zxtm/conf/settings.cfg\n",
+                  "echo 'ec2!vpc_decluster_on_stop   Yes' >> /opt/zeus/zxtm/conf/settings.cfg\n",
                   "cd /tmp\n",
                   "curl -s -LO https://s3.amazonaws.com/aws-cli/awscli-bundle.zip\n",
                   "unzip awscli-bundle.zip\n",
@@ -472,7 +473,7 @@
                   "mkdir -p /opt/aws\n",
                   "mv /tmp/housekeeper.sh /opt/aws/\n",
                   "rm -f /tmp/ctab.txt\n",
-                  "echo \"*/2 * * * * /opt/aws/housekeeper.sh >> /var/log/housekeeper-out.log 2>&1\" > /tmp/ctab.txt\n",
+                  "echo '*/2 * * * * /opt/aws/housekeeper.sh >> /var/log/housekeeper-out.log 2>&1' > /tmp/ctab.txt\n",
                   "exit 0\n",
                   "\n"
                 ]]},
